@@ -1,0 +1,90 @@
+name: POC CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+    inputs:
+      runBuildPush:
+        description: 'Run Build and Push'
+        required: true
+        default: 'true'
+        type: choice
+        options: 
+          - 'true'
+          - 'false'
+      runDeploy:
+        description: 'Run Deploy'
+        required: true
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+jobs:
+  build-and-push:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.event.inputs.runBuildPush == 'true'
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Run Tests and Generate Code Coverage
+        run: |
+          npm run test -- --coverage
+          npm install -g coveralls
+          coveralls < coverage/lcov.info || true
+
+      - name: Upload Coverage Summary
+        uses: irongut/CodeCoverageSummary@v1.3.0
+        with:
+          filename: coverage/lcov.info
+
+      - name: Log in to ACR
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ secrets.AZURE_ACR_LOGIN_SERVER }}
+          username: ${{ secrets.AZURE_ACR_USERNAME }}
+          password: ${{ secrets.AZURE_ACR_PASSWORD }}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.AZURE_ACR_LOGIN_SERVER }}/nodejs-app:${{ github.sha }}
+
+  deploy:
+    name: Deploy with Helm on Azure VM
+    runs-on: [self-hosted, azure-vm]
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main' || github.event.inputs.runDeploy == 'true'
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.12.0
+
+      - name: Deploy using Helm
+        run: |
+          helm upgrade --install nodejs-app ./helm-chart \
+            --namespace default \
+            --set image.repository=${{ secrets.AZURE_ACR_LOGIN_SERVER }}/nodejs-app \
+            --set image.tag=${{ github.sha }}
