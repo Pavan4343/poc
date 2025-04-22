@@ -1,29 +1,10 @@
 name: POC CI/CD Pipeline
-
-on:
+on: 
   workflow_dispatch:
-    inputs:
-      runBuildPush:
-        description: 'Run Build and Push'
-        required: true
-        default: 'true'
-        type: choice
-        options: 
-          - 'true'
-          - 'false'
-      runDeploy:
-        description: 'Run Deploy'
-        required: true
-        default: 'true'
-        type: choice
-        options:
-          - 'true'
-          - 'false'
   push:
-      branches:
-        - main
-        - 'poc'
-
+    branches:
+      - main
+      - 'poc'
 
 jobs:
   build-and-push:
