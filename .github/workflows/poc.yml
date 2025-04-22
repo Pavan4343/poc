@@ -19,6 +19,11 @@ on:
         options:
           - 'true'
           - 'false'
+  push:
+      branches:
+        - main
+        - 'poc'
+
 
 jobs:
   build-and-push:
