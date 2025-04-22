@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - 'poc'
 
   workflow_dispatch:
     inputs:
@@ -29,9 +28,11 @@ jobs:
   build-and-push:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.event.inputs.runBuildPush == 'true'
-
     steps:
+      - name: Check if job should run
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.runBuildPush == 'true'
+        run: echo "Proceeding with build and push..."
+
       - name: Checkout Code
         uses: actions/checkout@v4
 
@@ -78,9 +79,11 @@ jobs:
     name: Deploy with Helm on Azure VM
     runs-on: [self-hosted, azure-vm]
     needs: build-and-push
-    if: github.ref == 'refs/heads/main' || github.event.inputs.runDeploy == 'true'
-
     steps:
+      - name: Check if job should run
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.runDeploy == 'true'
+        run: echo "Proceeding with deployment..."
+
       - name: Checkout Code
         uses: actions/checkout@v4
 
